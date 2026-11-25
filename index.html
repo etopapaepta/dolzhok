@@ -380,6 +380,302 @@ window.DolzhokFX = (() => {
 
 </script>
 <script>
+// Должок — процедурная графика дома и людей: сруб, наличники, ставни, фронтон,
+// абажур, реалистичные фигуры персонажей. Всё рисуется один раз в текстуры.
+window.DolzhokArt = (() => {
+  const surface = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const rng = seed => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+
+  // ---- Сруб: круглые брёвна с паклей и снегом на верхних гранях ----
+  let logCache;
+  function logWall() {
+    if (logCache) return logCache;
+    const c = surface(128, 128), g = c.getContext('2d'), r = rng(91);
+    const logs = 5, h = 128 / logs;
+    for (let i = 0; i < logs; i++) {
+      const top = i * h;
+      const tone = .86 + r() * .22;
+      const grad = g.createLinearGradient(0, top, 0, top + h);
+      grad.addColorStop(0, `rgb(${118 * tone | 0},${106 * tone | 0},${90 * tone | 0})`);
+      grad.addColorStop(.35, `rgb(${96 * tone | 0},${84 * tone | 0},${70 * tone | 0})`);
+      grad.addColorStop(.8, `rgb(${58 * tone | 0},${49 * tone | 0},${40 * tone | 0})`);
+      grad.addColorStop(1, '#1d1813');
+      g.fillStyle = grad;
+      g.fillRect(0, top, 128, h);
+      // волокна и трещины
+      for (let k = 0; k < 26; k++) {
+        const y = top + 2 + r() * (h - 5), x = r() * 128, len = 8 + r() * 46;
+        g.fillStyle = r() > .55 ? 'rgba(20,14,10,.32)' : 'rgba(190,175,150,.10)';
+        g.fillRect(x, y, len, r() > .8 ? 1.4 : .8);
+      }
+      // сучок
+      if (r() > .4) {
+        const kx = r() * 120, ky = top + h * .45;
+        g.fillStyle = 'rgba(35,24,16,.6)';
+        g.beginPath(); g.ellipse(kx, ky, 2.6, 2, 0, 0, Math.PI * 2); g.fill();
+      }
+      // пакля между брёвнами
+      g.fillStyle = '#3e3626';
+      g.fillRect(0, top + h - 2.2, 128, 2.2);
+      for (let x = 0; x < 128; x += 2) {
+        g.fillStyle = `rgba(${110 + r() * 40 | 0},${96 + r() * 30 | 0},${62 + r() * 20 | 0},${.25 + r() * .3})`;
+        g.fillRect(x, top + h - 2.6 + r() * 1.4, 1.5, 1);
+      }
+      // иней/снег на верхней грани бревна
+      for (let x = 0; x < 128; x += 3) {
+        if (r() > .45) { g.fillStyle = `rgba(205,218,226,${.15 + r() * .3})`; g.fillRect(x, top + .5, 2 + r() * 4, 1 + r()); }
+      }
+    }
+    logCache = c;
+    return c;
+  }
+
+  // ---- Фронтон: вертикальная вагонка, потемневшая от времени ----
+  let gableCache;
+  function gable() {
+    if (gableCache) return gableCache;
+    const c = surface(128, 128), g = c.getContext('2d'), r = rng(57);
+    for (let x = 0; x < 128; x += 16) {
+      const tone = .8 + r() * .3;
+      g.fillStyle = `rgb(${70 * tone | 0},${62 * tone | 0},${54 * tone | 0})`;
+      g.fillRect(x, 0, 16, 128);
+      for (let k = 0; k < 14; k++) {
+        g.fillStyle = r() > .5 ? 'rgba(15,12,10,.3)' : 'rgba(170,160,140,.08)';
+        g.fillRect(x + 2 + r() * 12, r() * 128, .8, 10 + r() * 40);
+      }
+      g.fillStyle = '#16120e';
+      g.fillRect(x, 0, 1.6, 128);
+      // потёки
+      g.fillStyle = 'rgba(20,18,16,.25)';
+      g.fillRect(x + r() * 14, 0, 2, 40 + r() * 80);
+    }
+    gableCache = c;
+    return c;
+  }
+
+  // ---- Резные наличники и ставни поверх окна (окно в 23..107 × 11..92) ----
+  function trimWindow(g) {
+    const white = '#cfc8b6', shade = '#8f8878', r = rng(33);
+    // ставни
+    for (const [x0, w] of [[3, 17], [108, 17]]) {
+      g.fillStyle = '#2f5552';
+      g.fillRect(x0, 9, w, 86);
+      for (let k = 0; k < 3; k++) {
+        g.fillStyle = 'rgba(10,25,25,.45)';
+        g.fillRect(x0 + k * (w / 3), 9, 1, 86);
+      }
+      g.strokeStyle = 'rgba(15,30,30,.7)';
+      g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x0 + 1, 20); g.lineTo(x0 + w - 1, 20); g.moveTo(x0 + 1, 84); g.lineTo(x0 + w - 1, 84);
+      g.moveTo(x0 + 1, 84); g.lineTo(x0 + w - 1, 20); g.stroke();
+      for (let k = 0; k < 40; k++) { // облупленная краска
+        g.fillStyle = `rgba(120,110,95,${.25 + r() * .4})`;
+        g.fillRect(x0 + r() * w, 9 + r() * 86, 1 + r() * 3, 1 + r() * 2);
+      }
+    }
+    // рамка наличника
+    g.fillStyle = white;
+    g.fillRect(19, 9, 90, 5);
+    g.fillRect(19, 9, 5, 86);
+    g.fillRect(104, 9, 5, 86);
+    g.fillStyle = shade;
+    g.fillRect(19, 13, 90, 1);
+    g.fillRect(23, 9, 1, 86);
+    g.fillRect(104, 9, 1, 86);
+    // кокошник сверху
+    g.fillStyle = white;
+    g.beginPath();
+    g.moveTo(15, 9); g.lineTo(113, 9); g.lineTo(113, 4); g.quadraticCurveTo(64, -6, 15, 4); g.closePath();
+    g.fill();
+    g.fillStyle = '#2b2620';
+    for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(25 + k * 13, 6.5, 2.2, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = 'rgba(220,230,236,.8)'; // снег на кокошнике
+    g.beginPath(); g.moveTo(17, 3.6); g.quadraticCurveTo(64, -6, 111, 3.6); g.lineTo(111, 2); g.quadraticCurveTo(64, -8, 17, 2); g.fill();
+    // подоконная доска с резными «каплями»
+    g.fillStyle = white;
+    g.fillRect(15, 93, 98, 5);
+    for (let k = 0; k < 9; k++) {
+      g.beginPath(); g.arc(20 + k * 11, 98, 4.2, 0, Math.PI); g.fill();
+    }
+    g.fillStyle = '#2b2620';
+    for (let k = 0; k < 9; k++) { g.beginPath(); g.arc(20 + k * 11, 99, 1.3, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = 'rgba(225,233,238,.85)';
+    g.fillRect(15, 92, 98, 1.6);
+    // грязь и облупленность белой краски
+    for (let k = 0; k < 70; k++) {
+      g.fillStyle = r() > .5 ? `rgba(70,62,50,${.2 + r() * .35})` : `rgba(40,36,30,${.15 + r() * .2})`;
+      const edge = r();
+      const x = edge < .5 ? 19 + r() * 90 : (r() > .5 ? 19 + r() * 5 : 104 + r() * 5);
+      const y = edge < .5 ? (r() > .5 ? 9 + r() * 5 : 93 + r() * 5) : 9 + r() * 86;
+      g.fillRect(x, y, 1 + r() * 2.5, .8 + r() * 1.5);
+    }
+  }
+
+  // ---- Абажур над столом ----
+  function pendant() {
+    const c = surface(120, 120), g = c.getContext('2d');
+    g.strokeStyle = '#141210'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(60, 0); g.lineTo(60, 52); g.stroke();
+    const shade = g.createLinearGradient(14, 0, 106, 0);
+    shade.addColorStop(0, '#4a2412'); shade.addColorStop(.45, '#8a4a22'); shade.addColorStop(1, '#3a1c0e');
+    g.fillStyle = shade;
+    g.beginPath(); g.moveTo(40, 52); g.lineTo(80, 52); g.lineTo(108, 92); g.lineTo(12, 92); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(30,14,6,.5)'; g.lineWidth = 1;
+    for (let k = 0; k < 10; k++) { g.beginPath(); g.moveTo(42 + k * 4, 52); g.lineTo(14 + k * 10.4, 92); g.stroke(); }
+    g.fillStyle = '#6b3a1a';
+    for (let x = 12; x < 108; x += 3) g.fillRect(x, 92, 2, 10 + (x % 6 === 0 ? 3 : 0)); // бахрома
+    g.fillStyle = 'rgba(0,0,0,.35)';
+    g.beginPath(); g.ellipse(60, 92, 48, 5, 0, 0, Math.PI * 2); g.fill();
+    return c;
+  }
+
+  // ---- Люди: пропорции, пуховик со стёжкой, джинсы, ботинки, шапка, лицо в тени ----
+  const shadeHex = (hex, k) => {
+    const n = parseInt(hex.slice(1), 16);
+    const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+    return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})`;
+  };
+  function cylinder(g, x0, x1, base, light = 1.15, dark = .45) {
+    const grad = g.createLinearGradient(x0, 0, x1, 0);
+    grad.addColorStop(0, shadeHex(base, dark));
+    grad.addColorStop(.38, shadeHex(base, light));
+    grad.addColorStop(.62, shadeHex(base, 1));
+    grad.addColorStop(1, shadeHex(base, dark * .8));
+    return grad;
+  }
+
+  function person(role = {}) {
+    const hooded = role.name === 'Денис';
+    const W = 144, H = 256, g = surface(W, H).getContext('2d'), c = g.canvas;
+    const jacket = hooded ? '#2a2c2e' : darken(role.accent || '#4a4f57');
+    const scarf = role.scarf || '#8a7d6a';
+    function darken(hex) { // приглушаем мультяшные цвета до реальных тканей
+      const n = parseInt(hex.slice(1), 16);
+      const r = n >> 16, gg = n >> 8 & 255, b = n & 255, l = (r + gg + b) / 3;
+      const m = v => Math.round(l * .45 + v * .55) * .78;
+      return '#' + [m(r), m(gg), m(b)].map(v => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, '0')).join('');
+    }
+    // тень на снегу
+    g.fillStyle = 'rgba(0,0,0,.35)';
+    g.beginPath(); g.ellipse(72, 250, 40, 5, 0, 0, Math.PI * 2); g.fill();
+    // ноги — джинсы
+    for (const [x0, x1, lean] of [[50, 70, -2], [74, 94, 2]]) {
+      g.fillStyle = cylinder(g, x0, x1, '#2b3140', 1.1, .5);
+      g.beginPath();
+      g.moveTo(x0, 148); g.lineTo(x1, 148); g.lineTo(x1 + lean - 1, 236); g.lineTo(x0 + lean + 1, 236); g.closePath();
+      g.fill();
+      g.fillStyle = 'rgba(0,0,0,.25)';
+      g.fillRect(x0 + 3, 190, x1 - x0 - 6, 3); // складка у колена
+    }
+    // ботинки со снегом
+    for (const x of [46, 78]) {
+      g.fillStyle = '#17130f';
+      g.beginPath(); g.moveTo(x, 232); g.lineTo(x + 22, 232); g.quadraticCurveTo(x + 26, 244, x + 24, 250); g.lineTo(x - 2, 250); g.quadraticCurveTo(x - 3, 240, x, 232); g.fill();
+      g.fillStyle = 'rgba(210,220,228,.55)';
+      g.fillRect(x - 1, 246, 25, 3);
+    }
+    // руки вдоль тела
+    for (const [x0, x1, dir] of [[26, 46, -1], [98, 118, 1]]) {
+      g.fillStyle = cylinder(g, x0, x1, jacket);
+      g.beginPath();
+      g.moveTo(x0 + 6 * -dir + (dir < 0 ? 6 : 0), 66);
+      g.quadraticCurveTo(dir < 0 ? x0 - 3 : x1 + 3, 110, dir < 0 ? x0 + 1 : x1 - 1, 150);
+      g.lineTo(dir < 0 ? x1 + 2 : x0 - 2, 150);
+      g.quadraticCurveTo(dir < 0 ? x1 + 4 : x0 - 4, 105, dir < 0 ? x1 + 6 : x0 - 6, 70);
+      g.closePath();
+      g.fill();
+      // кисть в перчатке
+      g.fillStyle = '#16130f';
+      g.beginPath(); g.ellipse(dir < 0 ? x0 + 10 : x1 - 10, 156, 9, 11, 0, 0, Math.PI * 2); g.fill();
+    }
+    // пуховик
+    g.fillStyle = cylinder(g, 38, 106, jacket);
+    g.beginPath();
+    g.moveTo(44, 60); g.quadraticCurveTo(72, 52, 100, 60);
+    g.quadraticCurveTo(110, 66, 108, 84);
+    g.lineTo(106, 154); g.quadraticCurveTo(72, 162, 38, 154);
+    g.lineTo(36, 84); g.quadraticCurveTo(34, 66, 44, 60);
+    g.fill();
+    // стёжка
+    g.strokeStyle = 'rgba(0,0,0,.32)';
+    g.lineWidth = 1.4;
+    for (let y = 76; y < 152; y += 13) {
+      g.beginPath(); g.moveTo(38, y); g.quadraticCurveTo(72, y + 5, 106, y); g.stroke();
+    }
+    g.strokeStyle = 'rgba(255,255,255,.07)';
+    for (let y = 70; y < 150; y += 13) {
+      g.beginPath(); g.moveTo(46, y); g.quadraticCurveTo(72, y + 5, 98, y); g.stroke();
+    }
+    // молния и карманы
+    g.fillStyle = 'rgba(10,10,10,.6)';
+    g.fillRect(71, 66, 2, 88);
+    g.fillRect(46, 128, 16, 2);
+    g.fillRect(83, 128, 16, 2);
+    // контровой лунный свет по краю
+    g.strokeStyle = 'rgba(170,190,210,.22)';
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(38, 150); g.lineTo(36, 84); g.quadraticCurveTo(34, 66, 44, 60); g.stroke();
+
+    if (hooded) {
+      // капюшон, лицо почти не видно
+      g.fillStyle = shadeHex(jacket, .9);
+      g.beginPath(); g.ellipse(72, 38, 30, 36, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = shadeHex(jacket, .6);
+      g.beginPath(); g.moveTo(44, 58); g.quadraticCurveTo(72, 74, 100, 58); g.lineTo(98, 66); g.quadraticCurveTo(72, 80, 46, 66); g.fill();
+      const hole = g.createRadialGradient(72, 44, 2, 72, 42, 22);
+      hole.addColorStop(0, '#0b0a09'); hole.addColorStop(.75, '#060505'); hole.addColorStop(1, shadeHex(jacket, .5));
+      g.fillStyle = hole;
+      g.beginPath(); g.ellipse(72, 44, 18, 23, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(120,96,80,.35)'; // подбородок едва освещён
+      g.beginPath(); g.ellipse(72, 60, 9, 4, 0, 0, Math.PI); g.fill();
+      g.strokeStyle = 'rgba(170,190,210,.2)';
+      g.beginPath(); g.ellipse(72, 38, 30, 36, 0, Math.PI * .8, Math.PI * 1.4); g.stroke();
+      return c;
+    }
+    // шея и шарф
+    g.fillStyle = '#6a4c3c';
+    g.fillRect(64, 46, 16, 14);
+    g.fillStyle = cylinder(g, 46, 98, scarf.length === 7 ? darken(scarf) : '#5a4f45', 1.1, .55);
+    g.beginPath(); g.ellipse(72, 60, 26, 10, 0, 0, Math.PI * 2); g.fill();
+    g.fillRect(80, 60, 12, 30);
+    g.strokeStyle = 'rgba(0,0,0,.3)';
+    for (let k = 0; k < 4; k++) { g.beginPath(); g.moveTo(81, 64 + k * 7); g.lineTo(91, 64 + k * 7); g.stroke(); }
+    // голова: свет сверху, глаза в тени
+    const skin = g.createRadialGradient(68, 26, 3, 72, 34, 22);
+    skin.addColorStop(0, '#c49a7f'); skin.addColorStop(.6, '#94705b'); skin.addColorStop(1, '#4a3428');
+    g.fillStyle = skin;
+    g.beginPath(); g.ellipse(72, 34, 16, 20, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(40,26,20,.55)';
+    g.beginPath(); g.ellipse(65, 31, 4.5, 2.6, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(79, 31, 4.5, 2.6, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(40,26,20,.35)';
+    g.beginPath(); g.moveTo(72, 33); g.lineTo(75, 41); g.lineTo(71, 42); g.fill();
+    g.fillRect(67, 46, 10, 1.3);
+    g.fillStyle = 'rgba(0,0,0,.25)'; // тень под подбородком
+    g.beginPath(); g.ellipse(72, 52, 13, 4, 0, 0, Math.PI * 2); g.fill();
+    if (role.name === 'Гоша') {
+      g.strokeStyle = 'rgba(25,22,20,.9)'; g.lineWidth = 1.4;
+      g.strokeRect(59, 28, 11, 7); g.strokeRect(74, 28, 11, 7);
+      g.beginPath(); g.moveTo(70, 31); g.lineTo(74, 31); g.stroke();
+    }
+    // вязаная шапка
+    const hat = role.name === 'Лёша' ? '#6e5a2a' : role.name === 'Артур' ? '#2c2f33' : shadeHex(jacket, .9);
+    g.fillStyle = cylinder(g, 54, 90, hat.startsWith('#') ? hat : '#3a3a3a', 1.15, .5);
+    g.beginPath(); g.moveTo(55, 26); g.quadraticCurveTo(56, 4, 72, 3); g.quadraticCurveTo(88, 4, 89, 26); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.28)';
+    g.fillRect(55, 21, 34, 6);
+    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
+    for (let x = 57; x < 88; x += 3) { g.beginPath(); g.moveTo(x, 21); g.lineTo(x, 27); g.stroke(); }
+    g.strokeStyle = 'rgba(170,190,210,.25)'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(57, 18); g.quadraticCurveTo(58, 5, 72, 4); g.stroke();
+    return c;
+  }
+
+  return { logWall, gable, trimWindow, pendant, person };
+})();
+
+</script>
+<script>
 // Должок — поездка от первого лица: салон машины, четверо друзей, ночная лесная дорога.
 // Всё рисуется процедурно в виртуальном кадре 1600×1000 и обрезается под экран.
 // DolzhokRide.paint(canvas, t) — кадр в момент t (секунды поездки).
@@ -579,7 +875,7 @@ window.DolzhokRide = (() => {
   }
 
   // ---- рисование ------------------------------------------------------------------
-  function paint(canvas, t, { reduced = false } = {}) {
+  function paint(canvas, t, { reduced = false, fadeFrom } = {}) {
     const g = canvas.getContext('2d', { alpha: false });
     const cw = canvas.clientWidth || 800;
     const ch = canvas.clientHeight || 600;
@@ -889,6 +1185,13 @@ window.DolzhokRide = (() => {
     head();
     paintInterior(g, t, { steer, power, dashPower, v, who });
     g.restore();
+    // склейка с общим планом: выход из темноты
+    const since = t - (fadeFrom ?? -10);
+    if (since < .7) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = `rgba(0,0,0,${1 - smooth(0, .7, since)})`;
+      g.fillRect(0, 0, width, height);
+    }
   }
 
   function paintInterior(g, t, { steer, power, dashPower, v, who }) {
@@ -2315,7 +2618,6 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
       transition: none !important;
     }
   </style>
-<style>.dolzhok-intro .intro-road-photo, .dolzhok-intro .intro-car-rig { display: none !important; } .dolzhok-intro .intro-road { background: #020304; }</style>
 </head>
 <body>
   <main id="game" class="game">
@@ -4064,6 +4366,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
       }
     }
     if (type === 'W') {
+      if (!inside) ctx.drawImage(window.DolzhokArt.logWall(), 0, 0);
       ctx.fillStyle = '#191a1a';
       ctx.fillRect(23, 11, 84, 81);
       ctx.fillStyle = '#655240';
@@ -4091,7 +4394,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
       if (inside) {
         paintCurtain(ctx, 29, 1, curtain, true);
         paintCurtain(ctx, 96, -1, curtain, true);
-      }
+      } else window.DolzhokArt.trimWindow(ctx);
     }
     if (isDoor) {
       ctx.strokeStyle = '#3b342d';
@@ -4647,6 +4950,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
 
   function objectTexture(type, role) {
     const isPlayer = type === 'player';
+    if (isPlayer && window.DolzhokArt) return window.DolzhokArt.person(role);
     const bitmap = surface(72, isPlayer ? 128 : 48);
     const ctx = bitmap.getContext('2d');
     if (isPlayer) {
@@ -4934,7 +5238,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
   function create({ canvas, onHud = () => {}, onPose = () => {}, onEffect = () => {} }) {
     const ctx = canvas.getContext('2d', { alpha: false });
     const textures = Object.fromEntries(['H', 'W', 'D', 'F', 'S', 'P', 'Q', 'R', 'T', 'U'].map(type => [type, woodTexture(type)]));
-    const exterior = { H: textures.H, W: textures.W, D: textures.D, F: textures.F, S: textures.S };
+    const exterior = { H: window.DolzhokArt.logWall(), W: textures.W, D: textures.D, F: textures.F, S: textures.S };
     const furnishings = Object.fromEntries([...Object.keys(furniturePalette), 'tvOff'].map(type => [type, furnitureTexture(type)]));
     const treeArt = [0, 1, 2].map(kind => bendingCanopies(treeTexture(kind)));
     const avatarArt = Object.fromEntries(Object.entries(roles).map(([key, role]) => [key, objectTexture('player', role)]));
@@ -4979,7 +5283,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
         const tiles = splitMaterials(sheet);
         const texturedOutdoor = terrainTexture(tiles, -1);
         const texturedFloors = [terrainTexture(tiles, 0), terrainTexture(tiles, 1)];
-        exterior.H = woodTexture('H', tiles.siding);
+        exterior.H = window.DolzhokArt.logWall();
         exterior.D = woodTexture('D', tiles.fence);
         exterior.F = woodTexture('F', tiles.fence);
         exterior.S = woodTexture('S', tiles.fence);
@@ -5393,13 +5697,30 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
       const ridge = front ? 2.47 * Math.max(.13, 1 - Math.abs(along - 15.5) / 5.63) : .69;
       const roofTop = high - ridge * lens / z;
       const roofSample = Math.floor((along * 1.28 % 1 + 1) % 1 * 160);
-      ctx.drawImage(materials.roof, roofSample, 0, 1, 160, column, roofTop, 1, high - roofTop + 1);
-      ctx.fillStyle = front ? 'rgba(15,25,32,.22)' : 'rgba(15,25,32,.57)';
-      ctx.fillRect(column, roofTop, 1, high - roofTop + 1);
-      ctx.fillStyle = 'rgba(138,157,166,.66)';
-      ctx.fillRect(column, roofTop, 1, Math.max(1, 10 / z));
-      ctx.fillStyle = 'rgba(24,36,45,.84)';
-      ctx.fillRect(column, roofTop + Math.max(1, 9 / z), 1, Math.max(1, 15 / z));
+      const unitZ = lens / z;
+      const flake = Math.sin(Math.floor(along * 23) * 12.9898) * 43758.5453 % 1;
+      if (front) {
+        // фронтон: вагонка, а над ней свес крыши со снегом
+        ctx.drawImage(window.DolzhokArt.gable(), sample, 0, 1, 128, column, roofTop, 1, high - roofTop + 1);
+        ctx.fillStyle = 'rgba(10,16,20,.35)';
+        ctx.fillRect(column, roofTop, 1, high - roofTop + 1);
+        ctx.fillStyle = '#121110';
+        ctx.fillRect(column, roofTop, 1, Math.max(1, .16 * unitZ));
+        ctx.fillStyle = 'rgba(40,36,32,1)';
+        ctx.fillRect(column, roofTop + .16 * unitZ, 1, Math.max(1, .04 * unitZ));
+      } else {
+        ctx.drawImage(materials.roof, roofSample, 0, 1, 160, column, roofTop, 1, high - roofTop + 1);
+        ctx.fillStyle = 'rgba(15,25,32,.57)';
+        ctx.fillRect(column, roofTop, 1, high - roofTop + 1);
+        ctx.fillStyle = 'rgba(178,194,204,' + (.45 + Math.abs(flake) * .2) + ')';
+        ctx.fillRect(column, roofTop, 1, (high - roofTop) * (.55 + Math.abs(flake) * .25));
+      }
+      // снежная шапка на кромке
+      const cap = (.07 + Math.abs(flake) * .05) * unitZ;
+      ctx.fillStyle = 'rgb(176,192,202)';
+      ctx.fillRect(column, roofTop - cap, 1, cap + 1);
+      ctx.fillStyle = 'rgba(225,235,242,.8)';
+      ctx.fillRect(column, roofTop - cap, 1, Math.max(.7, cap * .3));
       const siding = upperWall === 'W' ? windowAt(false, tx, ty, 1, now) : exterior.H;
       ctx.drawImage(siding, sample, 0, 1, 128, column, high, 1, joint - high + 1);
       ctx.fillStyle = 'rgba(4,13,18,' + Math.max(.06, shade + (upperWall === 'W' ? -.13 : .04)) + ')';
@@ -5407,6 +5728,18 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
       if (upperWall === 'W') paintFacadeGlass(column, high, joint - high + 1, sample, tx, ty, 1);
       ctx.fillStyle = '#272a2b';
       ctx.fillRect(column, joint - 1, 1, Math.max(1, 14 / z));
+      // сосульки под свесом боковой стены
+      if (!front) {
+        const ice = Math.abs(Math.sin(Math.floor(along * 9) * 78.233) * 43758.5453 % 1);
+        if (ice > .55) {
+          const len = (.05 + (ice - .55) * .6) * unitZ;
+          const fade = ctx.createLinearGradient(0, high, 0, high + len);
+          fade.addColorStop(0, 'rgba(200,220,232,.75)');
+          fade.addColorStop(1, 'rgba(200,220,232,0)');
+          ctx.fillStyle = fade;
+          ctx.fillRect(column, high, 1, len);
+        }
+      }
     }
 
     function paintChimney(width, horizon, lens, eye, cosine, sine, time) {
@@ -5682,6 +6015,22 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
         ctx.fillRect(column, high, 1, low - high + 1);
         ctx.fillStyle = (inside ? 'rgba(211,153,91,' : 'rgba(27,46,54,') + Math.min(inside ? .075 : .29, z * .011) + ')';
         ctx.fillRect(column, high, 1, low - high + 1);
+        if (inside && type !== 'W' && type !== 'D') {
+          const unitZ = lens / z;
+          // плинтус
+          ctx.fillStyle = '#24180f';
+          ctx.fillRect(column, low - .085 * unitZ, 1, .085 * unitZ);
+          ctx.fillStyle = 'rgba(170,128,85,.3)';
+          ctx.fillRect(column, low - .085 * unitZ, 1, Math.max(.6, .01 * unitZ));
+          // наружная проводка на фарфоровых роликах
+          const wireY = horizon - (1.6 - eye) * unitZ;
+          ctx.fillStyle = 'rgba(18,14,10,.85)';
+          ctx.fillRect(column, wireY, 1, Math.max(.7, .011 * unitZ));
+          if ((along * 3 % 1 + 1) % 1 < .04) {
+            ctx.fillStyle = '#c9c1af';
+            ctx.fillRect(column, wireY - .013 * unitZ, 1, .035 * unitZ);
+          }
+        }
         if (!inside && painted === 'W') paintFacadeGlass(column, high, low - high + 1, sample, tx, ty, 0);
         if (firelight > .01) {
           ctx.fillStyle = 'rgba(233,153,87,' + firelight * .32 + ')';
@@ -6439,12 +6788,47 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
     }
   }
 
+  function renderRoadShot(scene, canvas, arrivalCanvas, time, reduced) {
+    const brakeProgress = unit((time - 13.6) / 4.2);
+    const brake = ease(brakeProgress);
+    const arrival = reduced ? Number(time >= 17.15) : ease(unit((time - 16.1) / 1.65));
+    scene.style.setProperty('--arrival', String(arrival));
+    if (reduced) return;
+
+    const travel = time - brakeProgress * brakeProgress * 1.65 - Math.max(0, time - 17.8) * .79;
+    const pace = 1 - brake * .84;
+    const steer = (Math.sin(travel * .54) * .78 + Math.sin(travel * .91 + .65) * .22) * pace;
+    const suspension = (Math.sin(travel * 10.8) * .62 + Math.cos(travel * 18.6) * .38) * pace;
+    const advancing = unit(travel / 15.95);
+    scene.style.setProperty('--road-x', `${(-steer * 1.14).toFixed(3)}%`);
+    scene.style.setProperty('--road-y', `${(.24 * suspension - advancing * .6).toFixed(3)}%`);
+    scene.style.setProperty('--road-roll', `${(.36 * steer).toFixed(3)}deg`);
+    scene.style.setProperty('--road-zoom', String(1 + advancing * .19));
+    scene.style.setProperty('--car-x', `${(steer * 13).toFixed(2)}px`);
+    scene.style.setProperty('--car-y', `${(suspension * 2.4 - brake * 5).toFixed(2)}px`);
+    scene.style.setProperty('--car-roll', `${(-steer * .72).toFixed(3)}deg`);
+    scene.style.setProperty('--car-zoom', String(1 - brake * .065));
+    scene.style.setProperty('--brake-light', String(.12 + brake * .8));
+    scene.style.setProperty('--arrival-zoom', String(1 + Math.max(0, time - 16.1) * .009));
+    if (arrival < 1) paintSnow(canvas, travel, steer);
+    if (arrival > 0 && !arrivalCanvas.hidden) paintArrival(arrivalCanvas, time);
+  }
+
+  const ROAD_SHOT = 7.2;
   function renderRide(scene, canvas, arrivalCanvas, time, reduced, ambience) {
+    const inCar = scene.querySelector('.intro-ride-canvas');
+    if (time < ROAD_SHOT || !window.DolzhokRide || !inCar) {
+      renderRoadShot(scene, canvas, arrivalCanvas, Math.min(time, 12), reduced);
+      scene.style.setProperty('--arrival', '0');
+      ambience?.update?.(time);
+      return;
+    }
     const arrival = reduced ? Number(time >= 38.6) : ease(unit((time - 37.6) / 1.8));
     scene.style.setProperty('--arrival', String(arrival));
-    if (arrival < 1 && window.DolzhokRide) {
-      window.DolzhokRide.paint(canvas, time, { reduced });
-      window.DolzhokFX?.frame(canvas, { inside: true, pace: 1, reduced });
+    if (inCar.style.opacity !== '1') inCar.style.opacity = '1';
+    if (arrival < 1) {
+      window.DolzhokRide.paint(inCar, time, { reduced, fadeFrom: ROAD_SHOT });
+      window.DolzhokFX?.frame(inCar, { inside: true, pace: 1, reduced });
     }
     ambience?.update?.(time);
     if (arrival > 0 && !arrivalCanvas.hidden) paintArrival(arrivalCanvas, time - 19);
@@ -6574,6 +6958,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
               <div class="intro-brakes"></div>
             </div>
             <canvas class="intro-canvas"></canvas>
+            <canvas class="intro-ride-canvas" style="position:absolute;inset:0;width:100%;height:100%;opacity:0"></canvas>
           </div>
           <div class="intro-arrival-shot" aria-hidden="true">
             <img class="intro-arrival-photo" alt="" draggable="false">
