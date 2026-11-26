@@ -6861,7 +6861,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
     if (arrival > 0 && !arrivalCanvas.hidden) paintArrival(arrivalCanvas, time);
   }
 
-  const ROAD_SHOT = 7.2;
+  const ROAD_SHOT = 0;
   function renderRide(scene, canvas, arrivalCanvas, time, reduced, ambience) {
     const inCar = scene.querySelector('.intro-ride-canvas');
     if (time < ROAD_SHOT || !window.DolzhokRide || !inCar) {
