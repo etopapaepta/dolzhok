@@ -5125,76 +5125,123 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
   }
 
   function buildSedan() {
+    // «Жигули»: вишнёвый кузов, грязный низ, хром, круглые фары, снег на крыше/капоте/багажнике.
     const sine = Math.sin(sedan.angle);
     const cosine = Math.cos(sedan.angle);
     const faces = [];
-    function face(vertices, color, highlight = color, edge = '') {
+    function face(vertices, color, highlight = color, edge = '', bias = 0) {
       faces.push({
-        color, highlight, edge,
+        color, highlight, edge, bias,
         vertices: vertices.map(([x, y, height]) => ({ x: sedan.x + x * cosine - y * sine, y: sedan.y + x * sine + y * cosine, height }))
       });
     }
-    const perimeter = [[-1.46, -.45], [-1.31, -.61], [1.27, -.60], [1.47, -.43], [1.47, .43], [1.27, .60], [-1.31, .61], [-1.46, .45]];
-    const ring = (height, size) => perimeter.map(([x, y]) => [x * size, y * size, height]);
-    const lower = ring(.24, .97);
-    const shoulder = ring(.57, 1);
-    const top = ring(.66, .92);
-    for (let index = 0; index < perimeter.length; index++) {
-      const next = (index + 1) % perimeter.length;
-      face([lower[index], lower[next], shoulder[next], shoulder[index]], '#1a2929', '#3e4d45', '#1c292b');
-      face([shoulder[index], shoulder[next], top[next], top[index]], '#30413b', '#52625a');
+    let seed = 2106;
+    const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    const paint = '#4e2420', paintHi = '#7d4038', dirt = '#2a1e1a', dirtHi = '#46362f';
+    const chrome = '#7d8184', chromeHi = '#d3d6d4';
+    const glass = '#141c22', glassHi = '#4f6470';
+    const snow = '#97a2a9', snowHi = '#c3cdd3';
+    const L = 1.47, W = .62;
+    const plan = [[-L, -.5], [-1.38, -W], [1.36, -W], [L, -.52], [L, .52], [1.36, W], [-1.38, W], [-L, .5]];
+    const ring = (h, s = 1) => plan.map(([x, y]) => [x, y * s, h]);
+    const sill = ring(.2, .96), mid = ring(.36, 1), belt = ring(.6, 1), deck = ring(.645, .95);
+    for (let i = 0; i < plan.length; i++) {
+      const n = (i + 1) % plan.length;
+      face([sill[i], sill[n], mid[n], mid[i]], dirt, dirtHi, '', -.05);
+      face([mid[i], mid[n], belt[n], belt[i]], paint, paintHi, '#1c0f0d', -.05);
+      face([belt[i], belt[n], deck[n], deck[i]], paint, paintHi, '', -.05);
     }
-    face(top, '#3b4942', '#667a73', '#34423c');
-    const cabinLow = [[-.94, -.51, .662], [.67, -.51, .662], [.67, .51, .662], [-.94, .51, .662]];
-    const cabinHigh = [[-.57, -.405, 1.02], [.20, -.40, 1.02], [.20, .40, 1.02], [-.57, .405, 1.02]];
-    for (let index = 0; index < 4; index++) {
-      const next = (index + 1) % 4;
-      const panel = [cabinLow[index], cabinLow[next], cabinHigh[next], cabinHigh[index]];
-      const center = panel.reduce((sum, point) => sum.map((value, axis) => value + point[axis] / 4), [0, 0, 0]);
-      const glazing = panel.map(point => point.map((value, axis) => center[axis] + (value - center[axis]) * (axis === 2 ? .89 : .94)));
-      face(panel, '#465347', '#7d8a77', '#263130');
-      face(glazing, '#18252b', '#526871', '#a0a69a');
-      if (index % 2 === 0) {
-        const [a, b, c, d] = panel;
-        const mix = (p, q, fraction) => p.map((v, axis) => v + (q[axis] - v) * fraction);
-        face([mix(a, b, .49), mix(a, b, .53), mix(d, c, .49), mix(d, c, .43)], '#343f38', '#6b796e');
-      }
+    face(deck, paint, paintHi, '#2a1512', -.3);
+
+    // снежная шапка с неровным краем
+    function snowSlab(x0, x1, y0, y1, h, thick, bias = .25) {
+      const pts = [];
+      const steps = 7;
+      for (let k = 0; k <= steps; k++) pts.push([x0 + (x1 - x0) * k / steps, y0 + (rnd() - .5) * .05, h + thick]);
+      for (let k = 0; k <= steps; k++) pts.push([x1 + (rnd() - .5) * .04, y0 + (y1 - y0) * k / steps, h + thick]);
+      for (let k = steps; k >= 0; k--) pts.push([x0 + (x1 - x0) * k / steps, y1 + (rnd() - .5) * .05, h + thick]);
+      for (let k = steps; k >= 0; k--) pts.push([x0 + (rnd() - .5) * .04, y0 + (y1 - y0) * k / steps, h + thick]);
+      face(pts, snow, snowHi, '', bias);
     }
-    face(cabinHigh.map(([x, y, h]) => [x, y, h + .008]), '#44564c', '#72837a', '#a1a99a');
+    snowSlab(.66, 1.4, -.5, .5, .645, .03);          // капот
+    snowSlab(-1.4, -1.0, -.48, .48, .645, .028);      // багажник
+
+    // салон: стойки, стёкла с инеем по краю
+    const low = [[-.98, -.54, .645], [.64, -.54, .645], [.64, .54, .645], [-.98, .54, .645]];
+    const high = [[-.64, -.45, 1.0], [.2, -.45, 1.0], [.2, .45, 1.0], [-.64, .45, 1.0]];
+    const lerp = (p, q, f) => p.map((v, a) => v + (q[a] - v) * f);
+    for (let i = 0; i < 4; i++) {
+      const n = (i + 1) % 4;
+      const panel = [low[i], low[n], high[n], high[i]];
+      face(panel, paint, paintHi, '#1c0f0d', 0);
+      const [a, b, c, d] = panel;
+      const pane = (f0, f1) => {
+        const p = [lerp(lerp(a, b, f0), lerp(d, c, f0), .08), lerp(lerp(a, b, f1), lerp(d, c, f1), .08),
+          lerp(lerp(a, b, f1), lerp(d, c, f1), .9), lerp(lerp(a, b, f0), lerp(d, c, f0), .9)];
+        face(p, glass, glassHi, '#0a0d10', .03);
+        face([p[0], p[1], lerp(p[1], p[2], .16), lerp(p[0], p[3], .16)], '#8a98a1', '#c4d0d6', '', .04); // иней снизу
+      };
+      if (i % 2 === 0) { pane(.05, .47); pane(.53, .95); } // боковые: два окна и стойка B
+      else pane(.06, .94);
+    }
+    face(high.map(([x, y, h]) => [x, y, h + .004]), paint, paintHi, '#1c0f0d', .02);
+    snowSlab(-.6, .16, -.41, .41, 1.0, .055, .3);   // крыша
+
     for (const side of [-1, 1]) {
-      const wheelY = side * .625;
-      function wheel(cx, radius, shift = 0) {
-        return Array.from({ length: 18 }, (_, slice) => {
-          const turn = slice * Math.PI / 9;
-          return [cx + Math.cos(turn) * radius, wheelY + shift * side, .247 + Math.sin(turn) * radius];
-        });
-      }
+      const y = side * .622;
+      // колёсные арки, шины, штампованные диски с колпаком
       for (const axle of [-.94, .92]) {
-        face(wheel(axle, .248), '#080d11', '#262e30');
-        face(wheel(axle, .175, .014), '#202629', '#505456');
-        face(wheel(axle, .112, .018), '#4c5151', '#adb4ac');
-        face(wheel(axle, .043, .020), '#343d40', '#606b70');
+        const circle = (r, h0, shift, n = 18) => Array.from({ length: n }, (_, k) => {
+          const t = k * Math.PI * 2 / n;
+          return [axle + Math.cos(t) * r, y + shift * side, h0 + Math.sin(t) * r];
+        });
+        face(circle(.29, .25, -.004).filter(p => p[2] >= .2), '#090706', '#090706', '', .005);
+        face(circle(.25, .25, .004), '#0b0b0c', '#26282a', '', .01);
+        face(circle(.17, .25, .012), '#55595c', '#a4a9ab', '', .015);
+        face(circle(.07, .25, .016, 12), chrome, chromeHi, '', .02);
+        face(circle(.25, .25, .006).filter(p => p[2] > .36), 'rgba(200,210,216,.5)', 'rgba(225,232,236,.6)', '', .012); // снег на шине
       }
-      const rim = side * .614;
-      face([[-1.31, rim, .50], [1.26, rim, .50], [1.26, rim, .52], [-1.31, rim, .52]], '#555f59', '#899287');
-      for (const handle of [-.54, .12]) {
-        face([[handle, rim, .572], [handle + .13, rim, .572], [handle + .13, rim, .598], [handle, rim, .598]], '#a1a49a', '#b2b4a9');
+      // хромированный молдинг, швы дверей, ручки, зеркало
+      face([[-1.36, y + side * .003, .47], [1.34, y + side * .003, .47], [1.34, y + side * .003, .49], [-1.36, y + side * .003, .49]], chrome, chromeHi, '', .02);
+      for (const seam of [-.98, -.18, .63]) {
+        face([[seam, y + side * .004, .24], [seam + .012, y + side * .004, .24], [seam + .012, y + side * .004, .62], [seam, y + side * .004, .62]], '#140b09', '#140b09', '', .02);
       }
-      face([[.44, side * .52, .68], [.56, side * .62, .68], [.62, side * .61, .76], [.46, side * .53, .765]], '#253337', '#526361');
+      for (const handle of [-.4, .4]) {
+        face([[handle, y + side * .006, .55], [handle + .12, y + side * .006, .55], [handle + .12, y + side * .006, .572], [handle, y + side * .006, .572]], chrome, chromeHi, '', .03);
+      }
+      face([[.5, side * .55, .68], [.6, side * .66, .68], [.62, side * .66, .76], [.5, side * .55, .77]], '#151515', '#3c3c3c', '', .03);
     }
+
     for (const end of [-1, 1]) {
-      const nose = end * 1.474;
-      face([[nose, -.48, .30], [nose, .48, .30], [nose, .48, .37], [nose, -.48, .37]], '#404c4e', '#8b9593');
-      face([[nose, -.42, .43], [nose, .42, .43], [nose, .42, .56], [nose, -.42, .56]], '#171e23', '#283132');
-      for (const side of [-1, 1]) {
-        const inside = side * .245;
-        const outside = side * .421;
-        face([[nose + end * .006, inside, .451], [nose + end * .006, outside, .451], [nose + end * .006, outside, .555], [nose + end * .006, inside, .555]],
-          end === 1 ? '#536063' : '#482c2b', end === 1 ? '#9b9e8b' : '#814340');
+      const nose = end * (L + .004);
+      const at = (dy, h, out = 0) => [nose + end * out, dy, h];
+      const flat = (y0, y1, h0, h1, color, hi, out, bias = .03, edge = '') =>
+        face([at(y0, h0, out), at(y1, h0, out), at(y1, h1, out), at(y0, h1, out)], color, hi, edge, bias);
+      flat(-.5, .5, .2, .6, end === 1 ? '#1d1110' : paint, end === 1 ? '#3a2420' : paintHi, 0, .01);
+      flat(-.56, .56, .27, .34, chrome, chromeHi, .05, .04, '#3b3e40');          // бампер
+      flat(-.13, .13, .19, .27, '#d9d6cb', '#f1eee4', .06, .05, '#222');           // номер
+      if (end === 1) {
+        flat(-.2, .2, .4, .54, '#101112', '#2b2d2f', .006, .02);                 // решётка
+        for (const h of [.43, .47, .51]) flat(-.2, .2, h, h + .008, chrome, chromeHi, .01, .025);
+        for (const side of [-1, 1]) {
+          for (const cy of [side * .28, side * .41]) {
+            const round = (r, out, color, hi, bias) => face(Array.from({ length: 14 }, (_, k) => {
+              const t = k * Math.PI * 2 / 14;
+              return at(cy + Math.cos(t) * r, .47 + Math.sin(t) * r, out);
+            }), color, hi, '', bias);
+            round(.068, .008, chrome, chromeHi, .03);
+            round(.052, .012, '#a9a695', '#e8e2cc', .035);
+          }
+          flat(side * .3, side * .46, .36, .385, '#b06a22', '#e0963c', .02, .03);    // поворотники
+        }
+      } else {
+        for (const side of [-1, 1]) {
+          flat(side * .22, side * .48, .44, .56, '#5c1a16', '#a8352b', .008, .03);    // фонари
+          flat(side * .22, side * .3, .44, .56, '#8a5a1e', '#d08a32', .01, .035);
+        }
       }
-      face([[nose + end * .008, -.14, .335], [nose + end * .008, .14, .335], [nose + end * .008, .14, .384], [nose + end * .008, -.14, .384]], '#9a9690', '#c0bab1');
     }
-    face([[-1.59, -.69, .01], [1.58, -.69, .01], [1.58, .69, .01], [-1.59, .69, .01]], 'rgba(6,10,12,.46)');
+    face([[-1.62, -.72, .01], [1.6, -.72, .01], [1.6, .72, .01], [-1.62, .72, .01]], 'rgba(3,5,6,.6)', 'rgba(3,5,6,.6)', '', -1);
     return faces;
   }
 
@@ -5591,7 +5638,7 @@ document.documentElement.style.setProperty('--media-storm-clouds', 'url(' + embe
         if (points.every(([x]) => x < 0) || points.every(([x]) => x > width)) continue;
         planes.push({ ...face, z, points });
       }
-      planes.sort((first, second) => second.z - first.z);
+      planes.sort((first, second) => (second.z - (second.bias || 0)) - (first.z - (first.bias || 0)));
       for (const face of planes) {
         let left = width;
         let right = 0;
